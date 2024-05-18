@@ -6,7 +6,7 @@ import { DbModule } from './db/db.module';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true })],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), UsersModule, DbModule],
   controllers: [AppController],
   providers: [AppService],
 })
