@@ -7,6 +7,6 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES: biblioteca-api
+      POSTGRES_DB: biblioteca-api
       POSTGRES_USER: glaymar2010@gmail.com
       POSTGRES_PASSWORD: nada
