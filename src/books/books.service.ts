@@ -1,26 +1,91 @@
-import { Injectable } from '@nestjs/common';
-import { CreateBookDto } from './dto/create-book.dto';
-import { UpdateBookDto } from './dto/update-book.dto';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { CreateBookDto, FindAllParameters } from './dto/create-book.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { BookEntity } from 'src/db/entities/book.entity';
+import { FindOptionsWhere, Like, Repository } from 'typeorm';
 
 @Injectable()
 export class BooksService {
-  create(createBookDto: CreateBookDto) {
-    return 'This action adds a new book';
+  constructor(
+    @InjectRepository(BookEntity)
+    private readonly booksRepository: Repository<BookEntity>,
+  ) {}
+
+  async create(createBookDto: CreateBookDto) {
+    const bookToSave: BookEntity = {
+      description: createBookDto.description,
+      title: createBookDto.title,
+    };
+
+    const createdBook = await this.booksRepository.save(bookToSave);
+
+    return this.mapEntityToDto(createdBook);
   }
 
-  findAll() {
-    return `This action returns all books`;
+  async findAll(params: FindAllParameters): Promise<CreateBookDto[]> {
+    const searchParams: FindOptionsWhere<BookEntity> = {};
+
+    if (params.title) {
+      searchParams.title = Like(`%${params.title}%`);
+    }
+
+    const bookFound = await this.booksRepository.find({
+      where: searchParams,
+    });
+
+    return bookFound.map((bookEntity) => this.mapEntityToDto(bookEntity));
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} book`;
+  async findOne(id: string) {
+    const foundBook = await this.booksRepository.findOne({
+      where: { id },
+    });
+    if (!foundBook) {
+      throw new HttpException(
+        `Book with id ${id} not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return this.mapEntityToDto(foundBook);
   }
 
-  update(id: number, updateBookDto: UpdateBookDto) {
-    return `This action updates a #${id} book`;
+  async update(id: string, book: CreateBookDto) {
+    const foundBook = await this.booksRepository.findOne({ where: { id } });
+
+    if (!foundBook) {
+      throw new HttpException(
+        `Task with id ${book.id} not found`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    await this.booksRepository.update(id, this.mapDtoEntity(book));
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} book`;
+  async remove(id: string) {
+    const result = await this.booksRepository.delete(id);
+
+    if (!result.affected) {
+      throw new HttpException(
+        `Book with id ${id} not found`,
+        HttpStatus.BAD_REQUEST,
+      );
+    } 
+  }
+
+  private mapEntityToDto(bookEntity: BookEntity): CreateBookDto {
+    return {
+      id: bookEntity.id,
+      title: bookEntity.title,
+      description: bookEntity.description,
+    };
+  }
+
+  private mapDtoEntity(bookEntity: BookEntity): Partial<BookEntity> {
+    return {
+      id: bookEntity.id,
+      title: bookEntity.title,
+      description: bookEntity.description,
+    };
   }
 }
