@@ -46,7 +46,7 @@ export class BooksController {
     return await this.booksService.update(params.id, book);
   }
 
-  @Delete(':id')
+  @Delete('/:id')
   async remove(@Param('id') id: string) {
     return await this.booksService.remove(id);
   }
