@@ -1,6 +1,10 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
 import { CreateUserDto, FindAllParameters } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserEntity } from 'src/db/entities/user.entity';
 import { FindOptionsWhere, Like, Repository } from 'typeorm';
@@ -44,8 +48,17 @@ export class UsersService {
     return userFound.map((userEntity) => this.mapEntityToDto(userEntity));
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findOne(id: string) {
+    const foundUser = await this.usersRepository.findOne({
+      where: { id },
+    });
+    if (!foundUser) {
+      throw new HttpException(
+        `User with id ${id} not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    return this.mapEntityToDto(foundUser);
   }
 
   async findByUserName(username: string): Promise<CreateUserDto | null> {
@@ -57,19 +70,34 @@ export class UsersService {
       return null;
     }
 
-    return {
-      id: userFound.id,
-      username: userFound.username,
-      password: userFound.passwordHash,
-    };
+    return this.mapEntityToDto(userFound);
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async update(id: string, user: CreateUserDto) {
+    const foundUser = await this.usersRepository.findOne({
+      where:{id}
+    })
+
+    if(!foundUser){
+      throw new HttpException(`User with id ${id} not found`, HttpStatus.NOT_FOUND)
+    }
+    const dbUser = new UserEntity();
+
+    dbUser.username = user.username;
+    dbUser.passwordHash = bcryptHashSync(user.password, 10);
+
+    await this.usersRepository.update(id, this.mapDtoEntity(dbUser))
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async remove(id: string) {
+    const result = await this.usersRepository.delete(id);
+
+    if (!result.affected) {
+      throw new HttpException(
+        `User with id ${id} not found`,
+        HttpStatus.BAD_REQUEST,
+      );
+    } 
   }
 
   private mapEntityToDto(userEntity: UserEntity): CreateUserDto {
